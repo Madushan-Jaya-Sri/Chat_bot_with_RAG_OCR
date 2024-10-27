@@ -9,6 +9,7 @@ services:
       - .:/app
     environment:
       - FLASK_ENV=production
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     restart: always
     networks:
       - app_network

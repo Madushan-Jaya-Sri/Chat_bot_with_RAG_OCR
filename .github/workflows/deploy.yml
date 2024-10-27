@@ -9,9 +9,18 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    
+    # Add environment protection
+    environment: production
 
     steps:
     - uses: actions/checkout@v2
+
+    # Add Docker build and test steps
+    - name: Build and test
+      run: |
+        docker build -t flask-app .
+        # Add your test commands here
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
@@ -20,13 +29,35 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ap-south-1
 
-    - name: Copy files to EC2
+    - name: Deploy to EC2
       env:
         PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
-        HOST: ec2-user@13.234.71.123
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }} 
+        HOST_USER: ec2-user
+        HOST_IP: ${{ secrets.EC2_HOST }}  # Move IP to secrets
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       run: |
+        # Setup SSH
         echo "$PRIVATE_KEY" > private_key.pem
         chmod 600 private_key.pem
-        scp -i private_key.pem -o StrictHostKeyChecking=no -r ./* $HOST:~/app/
-        ssh -i private_key.pem -o StrictHostKeyChecking=no $HOST 'cd ~/app && chmod +x deploy.sh && ./deploy.sh'
+        
+        # Create .env file with secrets
+        echo "OPENAI_API_KEY=$OPENAI_API_KEY" > .env
+        
+        # Secure copy files
+        scp -i private_key.pem -o StrictHostKeyChecking=no \
+          -o UserKnownHostsFile=/dev/null \
+          .env docker-compose.yml Dockerfile ./* \
+          ${HOST_USER}@${HOST_IP}:~/app/
+        
+        # Deploy using Docker
+        ssh -i private_key.pem -o StrictHostKeyChecking=no \
+          -o UserKnownHostsFile=/dev/null \
+          ${HOST_USER}@${HOST_IP} '
+            cd ~/app && \
+            docker-compose down && \
+            docker-compose up -d --build && \
+            docker system prune -f
+        '
+        
+        # Clean up sensitive files
+        rm -f private_key.pem .env
