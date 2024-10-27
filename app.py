@@ -13,7 +13,8 @@ from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
 from PyPDF2 import PdfReader
 import json
-import fitz  # PyMuPDF
+import fitz 
+import pymupdf
 import pytesseract
 from PIL import Image
 import io
@@ -109,7 +110,7 @@ def init_rag():
             
             try:
                 # Use PyMuPDF for PDF processing
-                doc = fitz.open(pdf_path)
+                doc = pymupdf.open(pdf_path)
                 text = ""
                 
                 for page_num in range(len(doc)):
@@ -362,4 +363,8 @@ def logout():
 if __name__ == "__main__":
     init_db()
     qa_chain = init_rag()
-    app.run(debug=False)
+    app.run(host='0.0.0.0', port=5001)
+
+
+
+    
