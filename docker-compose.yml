@@ -12,3 +12,6 @@ services:
       - FLASK_APP=app.py
       - FLASK_ENV=production
     restart: always
+
+    version: '3.8'
+
