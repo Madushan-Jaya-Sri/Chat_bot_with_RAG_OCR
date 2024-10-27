@@ -363,7 +363,7 @@ def logout():
 if __name__ == "__main__":
     init_db()
     qa_chain = init_rag()
-    app.run( port=5001)
+    app.run(host='0.0.0.0', port=5001)
 
 
 
