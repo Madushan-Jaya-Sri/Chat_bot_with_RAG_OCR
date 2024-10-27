@@ -24,6 +24,7 @@ jobs:
       env:
         PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
         HOST: ec2-user@13.234.71.123
+        OPENAI_API_KEY: ${{ vars.OPENAI_API_KEY }} 
       run: |
         echo "$PRIVATE_KEY" > private_key.pem
         chmod 600 private_key.pem
