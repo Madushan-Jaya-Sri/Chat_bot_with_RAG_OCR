@@ -6,12 +6,17 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - ./static:/app/static
-      - ./.env:/app/.env
+      - .:/app
     environment:
-      - FLASK_APP=app.py
       - FLASK_ENV=production
     restart: always
 
-    version: '3.8'
-
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - web
+    restart: always
