@@ -6,6 +6,91 @@
     <title>Tourism ChatBot</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Add these styles in your HTML head section -->
+    <style>
+        .bot-message table {
+            width: auto;  /* Don't force full width */
+            margin: 1rem 0;
+            border-collapse: collapse;
+        }
+        
+        .bot-message td, .bot-message th {
+            border: 1px solid #e2e8f0;
+            padding: 0.5rem 1rem;
+            text-align: right;  /* Right-align numbers */
+        }
+        .bot-message td:first-child {
+            text-align: left;
+        }
+        
+        .bot-message tr:nth-child(even) {
+            background-color: #cffde1;
+        }
+        
+        .bot-message ul {
+            margin: 0.5rem 0;
+            padding-left: 1.5rem;
+        }
+        
+        .bot-message h3 {
+            color: #1059f7;
+            margin-top: 1rem;
+        }
+
+        /* Add these styles to your CSS */
+        .table-container {
+            margin: 1rem 0;
+            overflow-x: auto;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            background-color: white;
+            font-size: 0.875rem;
+        }
+
+        th {
+            background-color: #f3f4f6;
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border: 1px solid #e5e7eb;
+        }
+
+        td {
+            padding: 0.75rem 1rem;
+            border: 1px solid #e5e7eb;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+
+        /* Responsive styles */
+        @media (max-width: 640px) {
+            table {
+                font-size: 0.75rem;
+            }
+            
+            th, td {
+                padding: 0.5rem;
+            }
+        }
+
+        /* Animation for table loading */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .table-container {
+            animation: fadeIn 0.3s ease-out;
+        }
+    </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
     <nav class="bg-gray-800 text-white p-4">

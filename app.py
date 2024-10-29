@@ -38,19 +38,38 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-# Custom prompt template
-CUSTOM_PROMPT = """You are a knowledgeable tourism assistant with access to detailed information about various destinations. 
-Use the following pieces of context to answer the question. Return the answer in a clear format (points form, table form).If you don't know the answer, just say that you don't know. 
-Don't try to make up an answer.
+# In app.py, update the CUSTOM_PROMPT
+CUSTOM_PROMPT = """You are a knowledgeable tourism assistant. Structure your response in a clear, visually appealing format using markdown.
+For numerical data, present it in tables. For lists, use proper bullet points. For trends, highlight key statistics.
+
+Summary: Brief overview in regular text
+Details: Key points in regular text with bullet points
+Statistics: ONLY numerical data in markdown tables
+Additional Info: Any other relevant information in regular text
+
+example output :
+
+Summary: 
+In recent years, Sri Lanka has seen significant fluctuations in tourist arrivals. From 2018 to 2020, there was a sharp decline mainly due to the global COVID-19 pandemic. However, the country experienced a notable recovery in 2021 and beyond. 
+
+Details:
+- Between 2018 and 2019, there was a small increase in tourist arrivals with the majority being from Europe, followed by Asia Pacific, and the Americas.
+- Nonetheless, the global pandemic in 2020 led to a drastic fall in tourist arrivals in all regions. 
+- The recovery started in 2021, with a significant boost in 2022 and 2023 as travel restrictions were lifted globally. 
+
+Statistics:
+
+<table data>
+
+Additional Info: some text
+
 
 Context: {context}
-
 Question: {question}
+Previous conversation: {chat_history}
 
-Previous conversation:
-{chat_history}
-
-Answer:"""
+Important: Only use tables for numerical statistics. All other content should be in regular text format.
+"""
 
 class User(UserMixin):
     def __init__(self, id, username):
@@ -140,8 +159,8 @@ def init_rag():
         
         # Text splitting
         text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200,
+            chunk_size=2000,
+            chunk_overlap=100,
             length_function=len,
             separators=["\n\n", "\n", " ", ""]
         )
@@ -155,9 +174,9 @@ def init_rag():
         
         print("\n=== Initializing Enhanced QA Chain ===")
         llm = ChatOpenAI(
-            temperature=0.3,
+            temperature=1,
             model="gpt-4",
-            max_tokens=1000
+            max_tokens=2000
         )
         
         # Initialize conversation memory properly
@@ -183,8 +202,8 @@ def init_rag():
             memory=memory,
             combine_docs_chain_kwargs={"prompt": custom_prompt},
             return_source_documents=True,
-            return_generated_question=False,  # Disable if not needed
-            verbose=True
+            return_generated_question=True,  # Disable if not needed
+            verbose=False
         )
         
         print("\n=== Enhanced RAG System Initialization Complete ===")
@@ -364,7 +383,3 @@ if __name__ == "__main__":
     init_db()
     qa_chain = init_rag()
     app.run(host='0.0.0.0', port=5001)
-
-
-
-    

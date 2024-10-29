@@ -227,42 +227,157 @@ function loadTemplate(template) {
     document.getElementById('chatForm').dispatchEvent(new Event('submit'));
 }
 
-// Append message with typing animation
+// In your JS file, update appendMessage function
 async function appendMessage(message, type) {
     const chatMessages = document.getElementById('chatMessages');
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${type}-message opacity-0 transition-opacity duration-300`;
 
-    // Add appropriate styling based on message type
+    // Add styling based on message type
     switch (type) {
         case 'user':
             messageDiv.classList.add('bg-blue-100', 'text-blue-900', 'rounded-lg', 'p-3', 'mb-2', 'max-w-3/4', 'ml-auto');
+            messageDiv.innerHTML = escapeHtml(message);
             break;
         case 'bot':
-            messageDiv.classList.add('bg-gray-100', 'text-gray-900', 'rounded-lg', 'p-3', 'mb-2', 'max-w-3/4');
+            messageDiv.classList.add('bg-white', 'shadow-md', 'rounded-lg', 'p-4', 'mb-2', 'max-w-3/4');
+            // Parse markdown and format the message
+            const formattedMessage = formatBotMessage(message);
+            messageDiv.innerHTML = formattedMessage;
             break;
         case 'error':
             messageDiv.classList.add('bg-red-100', 'text-red-900', 'rounded-lg', 'p-3', 'mb-2', 'max-w-3/4');
+            messageDiv.innerHTML = escapeHtml(message);
             break;
     }
 
-    // Add message content
-    messageDiv.innerHTML = escapeHtml(message);
-
-    // Add to chat
     chatMessages.appendChild(messageDiv);
-
-    // Scroll to new message
     chatMessages.scrollTop = chatMessages.scrollHeight;
-
-    // Trigger fade-in
     await new Promise(resolve => setTimeout(resolve, 50));
     messageDiv.classList.add('opacity-100');
-
-    // Wait for animation to complete
-    await new Promise(resolve => setTimeout(resolve, 300));
 }
 
+function formatBotMessage(message) {
+    // Define section headers with flexible matching
+    const sectionHeaders = [
+        'Summary',
+        'Details',
+        'Statistics',
+        'Additional Info'
+    ];
+    
+    // Create a regex pattern that matches:
+    // 1. Case insensitive section headers
+    // 2. Followed by different possible separators
+    // 3. Handles both with and without spaces
+    const headerPattern = new RegExp(
+        `(?:^|\\n)(${sectionHeaders.join('|')})[:\\s]*[-;]?\\s*`,
+        'gi'
+    );
+    
+    // Split message into sections based on headers
+    const sections = message.split(headerPattern);
+    
+    // Process each section
+    let formattedMessage = '';
+    for (let i = 0; i < sections.length; i++) {
+        const section = sections[i];
+        
+        // Skip empty sections
+        if (!section.trim()) continue;
+        
+        // Check if current section is a header
+        if (sectionHeaders.some(header => 
+            section.toLowerCase() === header.toLowerCase())) {
+            // If next section exists, format it as a section
+            if (i + 1 < sections.length) {
+                const content = sections[i + 1];
+                formattedMessage += formatSection(section, content);
+            }
+            i++; // Skip the content section in next iteration
+        } else if (i === 0) {
+            // Handle text before first header
+            formattedMessage += `<div class="mb-4">${formatContent(section)}</div>`;
+        }
+    }
+    
+    return formattedMessage;
+}
+
+// Helper function to format individual sections
+function formatSection(header, content) {
+    return `
+        <div class="section mb-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-3 flex items-center">
+                <span class="mr-2">${header}</span>
+                <span class="text-gray-500">:</span>
+            </h2>
+            <div class="pl-4 border-l-2 border-gray-200">
+                ${formatContent(content)}
+            </div>
+        </div>
+    `;
+}
+
+// Helper function to format content within sections
+function formatContent(content) {
+    return content
+        // Format bullet points
+        .replace(/^[-*]\s+(.+)$/gm, '<li class="ml-4 mb-2">$1</li>')
+        // Wrap bullet points in ul
+        .replace(/((?:<li[^>]*>.*<\/li>\s*)+)/g, '<ul class="list-disc mb-4">$1</ul>')
+        // Format numbers with commas
+        // .replace(/\b\d{4,}\b/g, num => parseInt(num).toLocaleString())
+        // Format paragraphs
+        .split('\n')
+        .map(para => para.trim())
+        .filter(para => para)
+        .map(para => `<p class="mb-3">${para}</p>`)
+        .join('');
+}
+
+// Update the existing table handling function
+function formatTableData(data) {
+    if (!data || typeof data !== 'string') return '';
+    
+    const rows = data.split('\n').map(row => row.trim()).filter(row => row);
+    if (rows.length < 2) return data;
+
+    const headers = rows[0].split('|').map(cell => cell.trim()).filter(cell => cell);
+    const tableHtml = `
+        <div class="overflow-x-auto my-4">
+            <table class="min-w-full table-auto border-collapse bg-white shadow-sm rounded-lg">
+                <thead>
+                    <tr>
+                        ${headers.map(header => `
+                            <th class="px-4 py-2 bg-gray-100 border text-left font-semibold">
+                                ${header}
+                            </th>
+                        `).join('')}
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows.slice(2).map((row, index) => `
+                        <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
+                            ${row.split('|')
+                                .map(cell => cell.trim())
+                                .filter(cell => cell)
+                                .map(cell => `
+                                    <td class="px-4 py-2 border">
+                                        ${cell.replace(/\b\d{4,}\b/g, num => 
+                                            parseInt(num).toLocaleString()
+                                        )}
+                                    </td>
+                                `).join('')}
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    return tableHtml;
+}
 // Show loading indicator
 function showLoading() {
     const chatMessages = document.getElementById('chatMessages');
@@ -271,8 +386,9 @@ function showLoading() {
     loadingDiv.innerHTML = `
         <div class="loading-dots flex space-x-1">
             <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+            <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
             <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
-            <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.4s"></div>
+            <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.3s"></div>
         </div>
     `;
     loadingDiv.id = 'loadingIndicator';
