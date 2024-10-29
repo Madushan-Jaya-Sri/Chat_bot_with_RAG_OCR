@@ -381,14 +381,17 @@ function formatTableData(data) {
 // Show loading indicator
 function showLoading() {
     const chatMessages = document.getElementById('chatMessages');
+    
+    // Check if loading indicator already exists to avoid duplicates
+    if (document.getElementById('loadingIndicator')) return;
+    
     const loadingDiv = document.createElement('div');
     loadingDiv.className = 'loading-indicator flex items-center space-x-2 p-3 mb-2';
     loadingDiv.innerHTML = `
         <div class="loading-dots flex space-x-1">
-            <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-            <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
-            <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
-            <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.3s"></div>
+            <div class="w-2 h-2 bg-gray-400 rounded-full animate-higherBounce"></div>
+            <div class="w-2 h-2 bg-gray-400 rounded-full animate-higherBounce" style="animation-delay: 0.1s"></div>
+            <div class="w-2 h-2 bg-gray-400 rounded-full animate-higherBounce" style="animation-delay: 0.2s"></div>
         </div>
     `;
     loadingDiv.id = 'loadingIndicator';
