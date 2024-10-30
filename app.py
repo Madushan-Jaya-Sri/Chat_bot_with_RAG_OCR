@@ -77,7 +77,7 @@ Commentary: Provide additional information and analysis that would help the user
 
 For charts, 
 
-
+generate a python code using matplotlib
 
 example output :
 
@@ -91,7 +91,7 @@ Details:
 
 Statistics:
 
-<chart>
+<generated python code>
 
 Commentary: text
 
