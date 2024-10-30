@@ -48,6 +48,98 @@ function initializeChatForm() {
     });
 }
 
+
+async function appendMessage(message, type) {
+    const chatMessages = document.getElementById('chatMessages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${type}-message opacity-0 transition-opacity duration-300 mx-4 my-2`;
+
+    // Add max-width constraint to message containers
+    const messageContainer = document.createElement('div');
+    messageContainer.className = 'max-w-2xl mx-auto';
+
+    switch (type) {
+        case 'user':
+            messageDiv.classList.add('bg-blue-100', 'text-blue-900', 'rounded-lg', 'p-3', 'mb-2', 'ml-auto');
+            messageContainer.innerHTML = escapeHtml(message);
+            messageDiv.style.maxWidth = '80%';
+            break;
+            
+        case 'bot':
+            messageDiv.classList.add('bg-white', 'shadow-md', 'rounded-lg', 'p-4', 'mb-2');
+            messageDiv.style.maxWidth = '90%';
+            
+            // Create typing effect container
+            const typingContainer = document.createElement('div');
+            const penIconContainer = document.createElement('div');
+            penIconContainer.className = 'flex items-center gap-2 mb-2 text-gray-500';
+            penIconContainer.innerHTML = `
+                <svg class="w-4 h-4 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                <span class="text-sm">Generating...</span>
+            `;
+            messageContainer.appendChild(penIconContainer);
+            messageContainer.appendChild(typingContainer);
+            
+            // Format and type the message
+            const formattedMessage = formatBotMessage(message);
+            let currentIndex = 0;
+            
+            const typing = async () => {
+                if (currentIndex < formattedMessage.length) {
+                    typingContainer.innerHTML = formattedMessage.slice(0, currentIndex + 1);
+                    currentIndex++;
+                    await new Promise(resolve => setTimeout(resolve, 0.5));
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                    requestAnimationFrame(typing);
+                } else {
+                    penIconContainer.remove();
+                    
+                    // Initialize charts after typing is complete
+                    messageDiv.querySelectorAll('.chart-container').forEach(container => {
+                        try {
+                            if (window.ReactDOM && window.ChartDisplay) {  // Check if React and ChartDisplay component are available
+                                const chartData = JSON.parse(container.dataset.chart);
+                                const chartRoot = document.createElement('div');
+                                container.appendChild(chartRoot);
+                                
+                                ReactDOM.render(
+                                    React.createElement(ChartDisplay, {
+                                        chartData: chartData.data,
+                                        chartType: chartData.type
+                                    }),
+                                    chartRoot
+                                );
+                            }
+                        } catch (e) {
+                            console.error('Failed to render chart:', e);
+                        }
+                    });
+                }
+            };
+            await typing();
+            break;
+            
+        case 'error':
+            messageDiv.classList.add('bg-red-100', 'text-red-900', 'rounded-lg', 'p-3', 'mb-2');
+            messageDiv.style.maxWidth = '80%';
+            messageContainer.innerHTML = escapeHtml(message);
+            break;
+    }
+
+    messageDiv.appendChild(messageContainer);
+    chatMessages.appendChild(messageDiv);
+    
+    // Ensure proper scrolling
+    requestAnimationFrame(() => {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    });
+    
+    await new Promise(resolve => setTimeout(resolve, 2));
+    messageDiv.classList.add('opacity-100');
+}
+
 // Send message to the server
 async function sendMessage(message) {
     // Add user message to chat with typing animation
@@ -227,83 +319,124 @@ function loadTemplate(template) {
     document.getElementById('chatForm').dispatchEvent(new Event('submit'));
 }
 
-// In your JS file, update appendMessage function
-async function appendMessage(message, type) {
-    const chatMessages = document.getElementById('chatMessages');
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${type}-message opacity-0 transition-opacity duration-300`;
 
-    // Add styling based on message type
-    switch (type) {
-        case 'user':
-            messageDiv.classList.add('bg-blue-100', 'text-blue-900', 'rounded-lg', 'p-3', 'mb-2', 'max-w-3/4', 'ml-auto');
-            messageDiv.innerHTML = escapeHtml(message);
-            break;
-        case 'bot':
-            messageDiv.classList.add('bg-white', 'shadow-md', 'rounded-lg', 'p-4', 'mb-2', 'max-w-3/4');
-            // Parse markdown and format the message
-            const formattedMessage = formatBotMessage(message);
-            messageDiv.innerHTML = formattedMessage;
-            break;
-        case 'error':
-            messageDiv.classList.add('bg-red-100', 'text-red-900', 'rounded-lg', 'p-3', 'mb-2', 'max-w-3/4');
-            messageDiv.innerHTML = escapeHtml(message);
-            break;
-    }
 
-    chatMessages.appendChild(messageDiv);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-    await new Promise(resolve => setTimeout(resolve, 50));
-    messageDiv.classList.add('opacity-100');
-}
+
 
 function formatBotMessage(message) {
-    // Define section headers with flexible matching
-    const sectionHeaders = [
-        'Summary',
-        'Details',
-        'Statistics',
-        'Additional Info'
-    ];
+
     
-    // Create a regex pattern that matches:
-    // 1. Case insensitive section headers
-    // 2. Followed by different possible separators
-    // 3. Handles both with and without spaces
-    const headerPattern = new RegExp(
-        `(?:^|\\n)(${sectionHeaders.join('|')})[:\\s]*[-;]?\\s*`,
-        'gi'
-    );
+    // Check for chart data in the message
+    const chartRegex = /<chart>([\s\S]*?)<\/image>/g;
+    let formattedMessage = message;
     
-    // Split message into sections based on headers
-    const sections = message.split(headerPattern);
-    
-    // Process each section
-    let formattedMessage = '';
-    for (let i = 0; i < sections.length; i++) {
-        const section = sections[i];
-        
-        // Skip empty sections
-        if (!section.trim()) continue;
-        
-        // Check if current section is a header
-        if (sectionHeaders.some(header => 
-            section.toLowerCase() === header.toLowerCase())) {
-            // If next section exists, format it as a section
-            if (i + 1 < sections.length) {
-                const content = sections[i + 1];
-                formattedMessage += formatSection(section, content);
-            }
-            i++; // Skip the content section in next iteration
-        } else if (i === 0) {
-            // Handle text before first header
-            formattedMessage += `<div class="mb-4">${formatContent(section)}</div>`;
+    // Replace chart tags with chart container divs
+    formattedMessage = formattedMessage.replace(chartRegex, (match, chartContent) => {
+        try {
+            const chartData = JSON.parse(chartContent);
+            return `<div class="chart-container" data-chart='${JSON.stringify(chartData)}'></div>`;
+        } catch (e) {
+            console.error('Failed to parse chart data:', e);
+            return '';
         }
-    }
-    
-    return formattedMessage;
+    });
+
+
+
+    // Format sections with better spacing and structure
+    const formattedSections = message.split(/(?=Details:|Statistics:|Commentary:)/).map(section => {
+        const sectionMatch = section.match(/^(Details:|Statistics:|Commentary:)([\s\S]*)/);
+        if (sectionMatch) {
+            const [, header, content] = sectionMatch;
+            return `
+                <div class="section mb-4">
+                    <h3 class="font-semibold text-gray-800 mb-2">${header}</h3>
+                    <div class="pl-4 border-l-2 border-gray-200" style = "border-color:#33d8c0">
+                        ${formatContent(content)}
+                    </div>
+                </div>
+            `;
+        }
+        return formatContent(section);
+    }).join('');
+
+    return `
+        <div class="message-content space-y-3">
+            ${formattedSections}
+        </div>
+    `;
 }
 
+function formatContent(content) {
+    if (!content) return '';
+    
+    return content
+        .trim()
+        .split('\n')
+        .map(line => {
+            // Format bullet points
+            if (line.trim().startsWith('-')) {
+                return `<li class="ml-4 mb-2">${line.trim().substring(1)}</li>`;
+            }
+            // Format regular paragraphs
+            return line.trim() ? `<p class="mb-2">${line}</p>` : '';
+        })
+        .join('')
+        .replace(/((?:<li[^>]*>.*<\/li>\s*)+)/g, '<ul class="list-disc mb-3">$1</ul>');
+}
+function formatTableData(data) {
+    if (!data || typeof data !== 'string') return data;
+    
+    // Remove empty rows and clean the data
+    const rows = data.split('\n')
+        .map(row => row.trim())
+        .filter(row => row && !row.match(/^\|[-\s|]*\|$/));
+    
+    if (rows.length < 1) return data;
+
+    // Process headers and data rows
+    const processRow = row => row
+        .split('|')
+        .map(cell => cell.trim())
+        .filter(cell => cell);
+
+    const headers = processRow(rows[0]);
+    const dataRows = rows.slice(1).map(processRow);
+
+    // Enhanced table styling
+    return `
+        <div class="overflow-x-auto my-4 rounded-lg shadow">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead>
+                    <tr class="bg-gray-50">
+                        ${headers.map(header => `
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                ${header}
+                            </th>
+                        `).join('')}
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    ${dataRows.map((row, rowIndex) => `
+                        <tr class="${rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100 transition-all">
+                            ${row.map((cell, cellIndex) => `
+                                <td class="px-6 py-4 whitespace-nowrap text-sm ${
+                                    cellIndex === 0 
+                                        ? 'font-medium text-gray-900' 
+                                        : isNaN(cell) 
+                                            ? 'text-gray-500' 
+                                            : 'text-gray-900 font-mono'
+                                }">
+                                    ${isNaN(cell) ? cell : parseFloat(cell).toLocaleString()}
+                                </td>
+                            `).join('')}
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
 // Helper function to format individual sections
 function formatSection(header, content) {
     return `
@@ -312,72 +445,15 @@ function formatSection(header, content) {
                 <span class="mr-2">${header}</span>
                 <span class="text-gray-500">:</span>
             </h2>
-            <div class="pl-4 border-l-2 border-gray-200">
+            <div class="pl-4 border-l-2 border-gray-200" style="border-color: #2ae47b;">
                 ${formatContent(content)}
             </div>
+
         </div>
     `;
 }
 
-// Helper function to format content within sections
-function formatContent(content) {
-    return content
-        // Format bullet points
-        .replace(/^[-*]\s+(.+)$/gm, '<li class="ml-4 mb-2">$1</li>')
-        // Wrap bullet points in ul
-        .replace(/((?:<li[^>]*>.*<\/li>\s*)+)/g, '<ul class="list-disc mb-4">$1</ul>')
-        // Format numbers with commas
-        // .replace(/\b\d{4,}\b/g, num => parseInt(num).toLocaleString())
-        // Format paragraphs
-        .split('\n')
-        .map(para => para.trim())
-        .filter(para => para)
-        .map(para => `<p class="mb-3">${para}</p>`)
-        .join('');
-}
 
-// Update the existing table handling function
-function formatTableData(data) {
-    if (!data || typeof data !== 'string') return '';
-    
-    const rows = data.split('\n').map(row => row.trim()).filter(row => row);
-    if (rows.length < 2) return data;
-
-    const headers = rows[0].split('|').map(cell => cell.trim()).filter(cell => cell);
-    const tableHtml = `
-        <div class="overflow-x-auto my-4">
-            <table class="min-w-full table-auto border-collapse bg-white shadow-sm rounded-lg">
-                <thead>
-                    <tr>
-                        ${headers.map(header => `
-                            <th class="px-4 py-2 bg-gray-100 border text-left font-semibold">
-                                ${header}
-                            </th>
-                        `).join('')}
-                    </tr>
-                </thead>
-                <tbody>
-                    ${rows.slice(2).map((row, index) => `
-                        <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
-                            ${row.split('|')
-                                .map(cell => cell.trim())
-                                .filter(cell => cell)
-                                .map(cell => `
-                                    <td class="px-4 py-2 border">
-                                        ${cell.replace(/\b\d{4,}\b/g, num => 
-                                            parseInt(num).toLocaleString()
-                                        )}
-                                    </td>
-                                `).join('')}
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        </div>
-    `;
-    
-    return tableHtml;
-}
 // Show loading indicator
 function showLoading() {
     const chatMessages = document.getElementById('chatMessages');
