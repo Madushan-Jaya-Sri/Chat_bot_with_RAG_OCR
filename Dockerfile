@@ -13,7 +13,8 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Clear existing Python libraries
-RUN pip freeze | xargs pip uninstall -y
+RUN if [ "$(pip freeze | wc -l)" -ne 0 ]; then pip freeze | xargs pip uninstall -y; else echo "No packages to uninstall"; fi
+
 
 # Copy requirements file first to leverage Docker cache
 COPY requirements.txt .
