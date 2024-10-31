@@ -24,30 +24,20 @@ jobs:
       env:
         PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
         HOST: ec2-user@13.234.71.123
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }} 
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       run: |
         # Setup SSH key
         echo "$PRIVATE_KEY" > private_key.pem
         chmod 600 private_key.pem
         
-        # Create required directories and setup environment
-        ssh -i private_key.pem -o StrictHostKeyChecking=no $HOST '
-          # Create app directory if it doesn't exist
-          mkdir -p ~/app
-          
-          # Clean existing files (optional)
-          rm -rf ~/app/*
-        '
-        
-        # Create environment file
+        # Create .env file first
         echo "OPENAI_API_KEY=$OPENAI_API_KEY" > .env
         
-        # Copy project files
-        scp -i private_key.pem -o StrictHostKeyChecking=no -r ./* $HOST:~/app/
+        # Create required directories and setup environment
+        ssh -i private_key.pem -o StrictHostKeyChecking=no $HOST "mkdir -p ~/app"
         
-        # Execute deployment script
-        ssh -i private_key.pem -o StrictHostKeyChecking=no $HOST '
-          cd ~/app && 
-          chmod +x deploy.sh && 
-          ./deploy.sh
-        '
+        # Copy project files including .env
+        scp -i private_key.pem -o StrictHostKeyChecking=no -r ./* ./.env $HOST:~/app/
+        
+        # Make deployment scripts executable and run
+        ssh -i private_key.pem -o StrictHostKeyChecking=no $HOST 'cd ~/app && chmod +x *.sh && ./deploy.sh'
