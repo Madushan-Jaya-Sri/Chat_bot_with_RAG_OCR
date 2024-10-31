@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chart.js Line Chart Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- Include Chart.js -->
+</head>
+<body>
+    <h1>Tourist Arrivals to Sri Lanka (2018-2023)</h1>
+    <canvas id="myChart" width="400" height="200"></canvas> <!-- Canvas for the chart -->
+    
+    <script>
+        // Your Chart.js code goes here
+        let data = {
+            labels: ['2018', '2019', '2020', '2021', '2022', '2023'],
+            datasets: [{
+                label: 'Tourist Arrivals (millions)',
+                data: [1407, 1462, 407, 458, 960, 1286],
+                backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1,
+                fill: false,
+            }],
+        };
+
+        let config = {
+            type: 'line',
+            data: data,
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Trend in Tourist Arrivals to Sri Lanka (2018-2023)',
+                    },
+                },
+                interaction: {
+                    intersect: false,
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Year',
+                        },
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Tourist Arrivals (millions)',
+                        },
+                    },
+                },
+            },
+        };
+
+        let myChart = new Chart(document.getElementById('myChart'), config); // Create the chart
+    </script>
+</body>
+</html>

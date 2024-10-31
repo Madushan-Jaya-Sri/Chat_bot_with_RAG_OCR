@@ -29,21 +29,6 @@ import io
 import ast
 from contextlib import redirect_stdout
 
-def extract_python_code(text):
-    """Extract Python code blocks from markdown text"""
-    # Look for content between ```python and ``` tags
-    code_pattern = re.compile(r'```python\s*(.*?)\s*```', re.DOTALL)
-    return code_pattern.findall(text)
-
-def is_visualization_code(code):
-    """Check if the code contains plotting commands"""
-    visualization_keywords = [
-        'plt.', 'matplotlib', 'seaborn', 'sns.', 'plot', 
-        'figure', 'bar', 'scatter', 'hist', 'boxplot'
-    ]
-    return any(keyword in code for keyword in visualization_keywords)
-
-
 # Load environment variables
 load_dotenv()
 
@@ -142,67 +127,109 @@ def init_db():
 def init_rag():
     print("\n=== Starting Enhanced RAG System Initialization ===")
     pdf_dir = os.path.join('static', 'pdfs')
+    processed_files_path = os.path.join('static', 'processed_files.json')
+    
+    # Create directories if they don't exist
     if not os.path.exists(pdf_dir):
         os.makedirs(pdf_dir)
         print(f"Created PDF directory at: {pdf_dir}")
     
+    # Load list of previously processed files
+    processed_files = set()
+    if os.path.exists(processed_files_path):
+        with open(processed_files_path, 'r') as f:
+            processed_files = set(json.load(f))
+    
     try:
-        documents = []
         pdf_files = [f for f in os.listdir(pdf_dir) if f.endswith('.pdf')]
+        new_files = [f for f in pdf_files if f not in processed_files]
         
         if not pdf_files:
             print("No PDF files found in the directory!")
             return None
-        
-        print(f"\nFound {len(pdf_files)} PDF files:")
-        for pdf_file in pdf_files:
-            print(f"\nProcessing: {pdf_file}")
-            pdf_path = os.path.join(pdf_dir, pdf_file)
             
-            try:
-                # Use PyMuPDF for PDF processing
-                doc = pymupdf.open(pdf_path)
-                text = ""
-                
-                for page_num in range(len(doc)):
-                    page = doc[page_num]
-                    text += page.get_text()
-                    
-                    # Extract images and perform OCR
-                    images = page.get_images(full=True)
-                    for img_index, img in enumerate(images):
-                        xref = img[0]
-                        base_image = doc.extract_image(xref)
-                        image_data = base_image["image"]
-                        image_text = extract_text_from_image(image_data)
-                        if image_text.strip():
-                            text += f"\nImage content: {image_text}\n"
-                
-                documents.append(text)
-                print(f"Successfully processed {pdf_file}")
-                
-            except Exception as e:
-                print(f"Error processing PDF {pdf_file}: {str(e)}")
-                continue
+        print(f"\nFound {len(pdf_files)} PDF files, {len(new_files)} new files to process")
         
-        if not documents:
-            print("\nNo documents were successfully processed")
-            return None
-        
-        # Text splitting
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=2000,
-            chunk_overlap=100,
-            length_function=len,
-            separators=["\n\n", "\n", " ", ""]
-        )
-        texts = text_splitter.create_documents(documents)
-        
-        print("\n=== Creating Embeddings ===")
+        # Initialize embeddings
         embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
         
-        print("\n=== Creating Vector Store ===")
-        vectorstore = Chroma.from_documents(texts, embeddings)
+        # Try to load existing vectorstore
+        if os.path.exists("chromadb") and os.listdir("chromadb"):
+            print("\n=== Loading existing vector store ===")
+            vectorstore = Chroma(
+                persist_directory="chromadb",
+                embedding_function=embeddings
+            )
+        else:
+            print("\n=== Creating new vector store ===")
+            vectorstore = None
+        
+        # Process only new files
+        if new_files:
+            new_documents = []
+            for pdf_file in new_files:
+                print(f"\nProcessing new file: {pdf_file}")
+                pdf_path = os.path.join(pdf_dir, pdf_file)
+                
+                try:
+                    # Use PyMuPDF for PDF processing
+                    doc = pymupdf.open(pdf_path)
+                    text = ""
+                    
+                    for page_num in range(len(doc)):
+                        page = doc[page_num]
+                        text += page.get_text()
+                        
+                        # Extract images and perform OCR
+                        images = page.get_images(full=True)
+                        for img_index, img in enumerate(images):
+                            xref = img[0]
+                            base_image = doc.extract_image(xref)
+                            image_data = base_image["image"]
+                            image_text = extract_text_from_image(image_data)
+                            if image_text.strip():
+                                text += f"\nImage content: {image_text}\n"
+                    
+                    new_documents.append(text)
+                    processed_files.add(pdf_file)
+                    print(f"Successfully processed {pdf_file}")
+                    
+                except Exception as e:
+                    print(f"Error processing PDF {pdf_file}: {str(e)}")
+                    continue
+            
+            if new_documents:
+                # Text splitting for new documents
+                text_splitter = RecursiveCharacterTextSplitter(
+                    chunk_size=2000,
+                    chunk_overlap=100,
+                    length_function=len,
+                    separators=["\n\n", "\n", " ", ""]
+                )
+                texts = text_splitter.create_documents(new_documents)
+                
+                # Add new documents to vectorstore
+                if vectorstore is None:
+                    print("\n=== Creating vector store with new documents ===")
+                    vectorstore = Chroma.from_documents(
+                        documents=texts,
+                        embedding=embeddings,
+                        persist_directory="chromadb"
+                    )
+                else:
+                    print("\n=== Adding new documents to existing vector store ===")
+                    vectorstore.add_documents(texts)
+                
+                # Save updated list of processed files
+                with open(processed_files_path, 'w') as f:
+                    json.dump(list(processed_files), f)
+                
+                # Persist the updated vectorstore
+                vectorstore.persist()
+        
+        if vectorstore is None:
+            print("\nNo documents were successfully processed")
+            return None
         
         print("\n=== Initializing Enhanced QA Chain ===")
         llm = ChatOpenAI(
@@ -211,20 +238,17 @@ def init_rag():
             max_tokens=2000
         )
         
-        # Initialize conversation memory properly
         memory = ConversationBufferMemory(
             memory_key="chat_history",
-            output_key="answer",  # Specify the output key
+            output_key="answer",
             return_messages=True
         )
         
-        # Create custom prompt
         custom_prompt = PromptTemplate(
             template=CUSTOM_PROMPT,
             input_variables=["context", "question", "chat_history"]
         )
 
-        # Initialize the QA chain with updated configuration
         qa_chain = ConversationalRetrievalChain.from_llm(
             llm=llm,
             retriever=vectorstore.as_retriever(
@@ -234,7 +258,7 @@ def init_rag():
             memory=memory,
             combine_docs_chain_kwargs={"prompt": custom_prompt},
             return_source_documents=True,
-            return_generated_question=True,  # Disable if not needed
+            return_generated_question=True,
             verbose=False
         )
         
@@ -244,7 +268,6 @@ def init_rag():
     except Exception as e:
         print(f"\nError initializing RAG system: {str(e)}")
         return None
-
 @login_manager.user_loader
 def load_user(user_id):
     conn = sqlite3.connect('database.db')
