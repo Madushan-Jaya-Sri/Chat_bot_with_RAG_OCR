@@ -20,15 +20,34 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ap-south-1
 
-    - name: Copy files to EC2
+    - name: Deploy to EC2
       env:
         PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
         HOST: ec2-user@13.234.71.123
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }} 
       run: |
+        # Setup SSH key
         echo "$PRIVATE_KEY" > private_key.pem
         chmod 600 private_key.pem
-       
+        
+        # Create required directories and setup environment
+        ssh -i private_key.pem -o StrictHostKeyChecking=no $HOST '
+          # Create app directory if it doesn't exist
+          mkdir -p ~/app
+          
+          # Clean existing files (optional)
+          rm -rf ~/app/*
+        '
+        
+        # Create environment file
         echo "OPENAI_API_KEY=$OPENAI_API_KEY" > .env
+        
+        # Copy project files
         scp -i private_key.pem -o StrictHostKeyChecking=no -r ./* $HOST:~/app/
-        ssh -i private_key.pem -o StrictHostKeyChecking=no $HOST 'cd ~/app && chmod +x deploy.sh && ./deploy.sh'
+        
+        # Execute deployment script
+        ssh -i private_key.pem -o StrictHostKeyChecking=no $HOST '
+          cd ~/app && 
+          chmod +x deploy.sh && 
+          ./deploy.sh
+        '
