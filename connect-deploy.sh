@@ -35,7 +35,7 @@ server {
     server_name 13.234.71.123;
 
     location / {
-        proxy_pass http://app-web-1:5001;;
+        proxy_pass http://localhost:5001;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -62,4 +62,4 @@ echo "Building and starting Docker containers..."
 sudo docker-compose down || true  # Stop existing containers if any
 sudo docker-compose up --build -d
 
-echo "Deployment complete! The application should now be accessible at http://13.234.71.123 "
+echo "Deployment complete! The application should now be accessible at http://13.234.71.123"
