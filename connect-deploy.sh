@@ -32,7 +32,7 @@ echo "Configuring nginx..."
 sudo bash -c 'cat > /etc/nginx/conf.d/flask_app.conf << EOL
 server {
     listen 80;
-    server_name 13.202.203.220;
+    server_name 13.234.71.123;
 
     location / {
         proxy_pass http://app-web-1:5001;;
@@ -62,4 +62,4 @@ echo "Building and starting Docker containers..."
 sudo docker-compose down || true  # Stop existing containers if any
 sudo docker-compose up --build -d
 
-echo "Deployment complete! The application should now be accessible at http://13.202.203.220"
+echo "Deployment complete! The application should now be accessible at http://13.234.71.123 "
